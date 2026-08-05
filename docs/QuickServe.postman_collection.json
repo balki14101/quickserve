@@ -1,0 +1,636 @@
+{
+  "info": {
+    "_postman_id": "b6e2a9c4-7f31-4c9e-9b0a-3f6d1e2c8a4b",
+    "name": "QuickServe API",
+    "description": "All endpoints for the QuickServe backend (Node/Express/TypeScript + MongoDB).\n\n**How to use:**\n1. Import this collection.\n2. Confirm the `baseUrl` variable (defaults to `http://localhost:5000`) matches your running server.\n3. Run the folders top to bottom: `Auth` -> `Providers (Public)` -> `Provider (Provider Only)` -> `Bookings (Customer Only)` -> `Customer (Customer Only)`.\n4. Test scripts auto-save tokens/ids into collection variables as you go (`customerToken`, `providerToken`, `providerProfileId`, `serviceId`, `slotId`, `bookingId`, etc.) - no manual copy/paste needed.\n\n**End-to-end order this collection is built for:**\nSignup Provider -> Create Provider Profile -> Get Provider Profile -> Create Service -> Add Availability -> Get Provider Bookings -> Signup Customer -> Create Booking -> Get My Bookings.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "No auth required. Confirms the server is up (does not check MongoDB connectivity)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Signup - Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"customerToken\", json.token);",
+                  "    pm.collectionVariables.set(\"customerId\", json.user.id);",
+                  "    pm.collectionVariables.set(\"customerEmail\", json.user.email);",
+                  "}",
+                  "",
+                  "pm.test(\"Signup succeeded (201)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alice Customer\",\n  \"email\": \"{{$randomEmail}}\",\n  \"password\": \"Passw0rd!123\",\n  \"role\": \"customer\",\n  \"phone\": \"555-0101\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signup"]
+            },
+            "description": "Creates a customer account and returns a JWT. Uses `{{$randomEmail}}` (Postman dynamic variable) so this can be re-run without hitting the 409 duplicate-email check. The test script saves the token, user id, and the exact email used into collection variables (`customerToken`, `customerId`, `customerEmail`) for reuse by later requests."
+          },
+          "response": []
+        },
+        {
+          "name": "Signup - Provider",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"providerToken\", json.token);",
+                  "    pm.collectionVariables.set(\"providerUserId\", json.user.id);",
+                  "    pm.collectionVariables.set(\"providerEmail\", json.user.email);",
+                  "}",
+                  "",
+                  "pm.test(\"Signup succeeded (201)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bob Provider\",\n  \"email\": \"{{$randomEmail}}\",\n  \"password\": \"Passw0rd!123\",\n  \"role\": \"provider\",\n  \"phone\": \"555-0102\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signup"]
+            },
+            "description": "Creates a provider account and returns a JWT. Saves `providerToken`, `providerUserId`, and `providerEmail` into collection variables. Run 'Create Provider Profile' (in the `Provider (Provider Only)` folder) right after this."
+          },
+          "response": []
+        },
+        {
+          "name": "Login - Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"customerToken\", json.token);",
+                  "    pm.collectionVariables.set(\"customerId\", json.user.id);",
+                  "}",
+                  "",
+                  "pm.test(\"Login succeeded (200)\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"Passw0rd!123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Re-logs-in as the customer created by 'Signup - Customer' (reuses the `customerEmail` variable it saved). Only works after that request has run at least once in this session."
+          },
+          "response": []
+        },
+        {
+          "name": "Login - Provider",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"providerToken\", json.token);",
+                  "    pm.collectionVariables.set(\"providerUserId\", json.user.id);",
+                  "}",
+                  "",
+                  "pm.test(\"Login succeeded (200)\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{providerEmail}}\",\n  \"password\": \"Passw0rd!123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Re-logs-in as the provider created by 'Signup - Provider' (reuses the `providerEmail` variable it saved)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Providers (Public)",
+      "item": [
+        {
+          "name": "List Providers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/providers",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers"]
+            },
+            "description": "No auth required. Lists every provider profile."
+          },
+          "response": []
+        },
+        {
+          "name": "List Providers by Category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/providers?category=salon",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers"],
+              "query": [
+                { "key": "category", "value": "salon" }
+              ]
+            },
+            "description": "No auth required. Change the `category` query param value to match a category you've actually created (the default 'Create Provider Profile' request uses `salon`)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Provider by Id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/providers/{{providerProfileId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers", "{{providerProfileId}}"]
+            },
+            "description": "No auth required. `providerProfileId` is auto-saved by 'Create Provider Profile'. Returns the provider profile plus its list of services."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Provider Availability",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 404\", function () {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/providers/{{providerProfileId}}/availability",
+              "host": ["{{baseUrl}}"],
+              "path": ["providers", "{{providerProfileId}}", "availability"]
+            },
+            "description": "No auth required. Lists open (isBooked: false) slots for the given provider."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Provider (Provider Only)",
+      "item": [
+        {
+          "name": "Create Provider Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"providerProfileId\", json.profile._id);",
+                  "}",
+                  "",
+                  "pm.test(\"Provider profile created (201)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{providerToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessName\": \"Test Salon\",\n  \"category\": \"salon\",\n  \"description\": \"A test salon for API testing\",\n  \"imageUrl\": \"\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/provider/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["provider", "profile"]
+            },
+            "description": "Requires `Authorization: Bearer <provider JWT>`. Run 'Signup - Provider' first. `businessName` and `category` are required; `description` and `imageUrl` are optional. Returns 409 if this provider already has a profile. Saves `providerProfileId` on success - every downstream request in this folder, plus the public `Providers` folder, depends on this."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Provider Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/provider/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["provider", "profile"]
+            },
+            "description": "Requires `Authorization: Bearer <provider JWT>`. Returns the logged-in provider's own profile, or 404 if 'Create Provider Profile' hasn't been run yet."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Service",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"serviceId\", json.service._id);",
+                  "    pm.collectionVariables.set(\"providerProfileId\", json.service.providerId);",
+                  "}",
+                  "",
+                  "pm.test(\"Service created (201)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{providerToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Men's Haircut\",\n  \"durationMinutes\": 30,\n  \"price\": 25\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/provider/services",
+              "host": ["{{baseUrl}}"],
+              "path": ["provider", "services"]
+            },
+            "description": "Requires `Authorization: Bearer <provider JWT>`. Requires 'Create Provider Profile' to have been run first - otherwise returns 404. Saves `serviceId` and `providerProfileId` on success."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Availability",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"slotId\", json.slot._id);",
+                  "}",
+                  "",
+                  "pm.test(\"Availability created (201)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{providerToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceId\": \"{{serviceId}}\",\n  \"date\": \"2026-08-10\",\n  \"startTime\": \"10:00\",\n  \"endTime\": \"10:30\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/provider/availability",
+              "host": ["{{baseUrl}}"],
+              "path": ["provider", "availability"]
+            },
+            "description": "Requires `Authorization: Bearer <provider JWT>`. Run 'Create Service' first so `{{serviceId}}` is populated. Saves `slotId` on success."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Provider Bookings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/provider/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["provider", "bookings"]
+            },
+            "description": "Requires `Authorization: Bearer <provider JWT>`. Lists bookings made against this provider's slots, with customer/service/slot populated."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bookings (Customer Only)",
+      "item": [
+        {
+          "name": "Create Booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set(\"bookingId\", json.booking._id);",
+                  "}",
+                  "",
+                  "pm.test(\"Booking created (201)\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{customerToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slotId\": \"{{slotId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            },
+            "description": "Requires `Authorization: Bearer <customer JWT>`. Atomically claims `{{slotId}}` (set by 'Add Availability'). Saves `bookingId` on success."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Booking - Conflict (Double Book)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Second booking on the same slot is rejected (409)\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{customerToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slotId\": \"{{slotId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            },
+            "description": "Run this immediately after 'Create Booking' with the same `{{slotId}}` still set. Demonstrates the atomic findOneAndUpdate slot lock: the slot is already `isBooked: true`, so this should return 409 Conflict, not create a second booking."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Customer (Customer Only)",
+      "item": [
+        {
+          "name": "Get My Bookings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["customer", "bookings"]
+            },
+            "description": "Requires `Authorization: Bearer <customer JWT>`. Lists bookings made by this customer, with provider/service/slot populated."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "customerToken", "value": "" },
+    { "key": "customerId", "value": "" },
+    { "key": "customerEmail", "value": "" },
+    { "key": "providerToken", "value": "" },
+    { "key": "providerUserId", "value": "" },
+    { "key": "providerEmail", "value": "" },
+    { "key": "providerProfileId", "value": "" },
+    { "key": "serviceId", "value": "" },
+    { "key": "slotId", "value": "" },
+    { "key": "bookingId", "value": "" }
+  ]
+}
