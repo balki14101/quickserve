@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b6e2a9c4-7f31-4c9e-9b0a-3f6d1e2c8a4b",
     "name": "QuickServe API",
-    "description": "All endpoints for the QuickServe backend (Node/Express/TypeScript + MongoDB).\n\n**How to use:**\n1. Import this collection.\n2. Confirm the `baseUrl` variable (defaults to `http://localhost:5000`) matches your running server.\n3. Run the folders top to bottom: `Auth` -> `Providers (Public)` -> `Provider (Provider Only)` -> `Bookings (Customer Only)` -> `Customer (Customer Only)`.\n4. Test scripts auto-save tokens/ids into collection variables as you go (`customerToken`, `providerToken`, `providerProfileId`, `serviceId`, `slotId`, `bookingId`, etc.) - no manual copy/paste needed.\n\n**End-to-end order this collection is built for:**\nSignup Provider -> Create Provider Profile -> Get Provider Profile -> Create Service -> Add Availability -> Get Provider Bookings -> Signup Customer -> Create Booking -> Get My Bookings.",
+    "description": "All endpoints for the QuickServe backend (Node/Express/TypeScript + MongoDB).\n\n**How to use:**\n1. Import this collection.\n2. Confirm the `baseUrl` variable (defaults to `http://localhost:5000`) matches your running server.\n3. Run the folders top to bottom: `Auth` -> `Providers (Public)` -> `Provider (Provider Only)` -> `Bookings (Customer Only)` -> `Booking Status Updates` -> `Customer (Customer Only)`.\n4. Test scripts auto-save tokens/ids into collection variables as you go (`customerToken`, `providerToken`, `providerProfileId`, `serviceId`, `slotId`, `bookingId`, etc.) - no manual copy/paste needed.\n\n**End-to-end order this collection is built for:**\nSignup Provider -> Create Provider Profile -> Get Provider Profile -> Create Service -> Add Availability -> Get Provider Bookings -> Signup Customer -> Create Booking -> Cancel Booking (Customer) -> Complete Booking (Provider, expect 400 since it's already cancelled) -> Get My Bookings.\n\n**Pagination:** `GET /providers`, `GET /provider/bookings`, and `GET /customer/bookings` all accept optional `?page=` and `?limit=` query params (default 1/10, `limit` capped at 50) and return a `pagination` object alongside the results.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -229,9 +229,13 @@
             "url": {
               "raw": "{{baseUrl}}/providers",
               "host": ["{{baseUrl}}"],
-              "path": ["providers"]
+              "path": ["providers"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "limit", "value": "10", "disabled": true }
+              ]
             },
-            "description": "No auth required. Lists every provider profile."
+            "description": "No auth required. Lists every provider profile. Supports optional `?page=` and `?limit=` (default 1/10, `limit` capped at 50). Response includes a `pagination` object: `{ page, limit, total, totalPages }`."
           },
           "response": []
         },
@@ -497,9 +501,13 @@
             "url": {
               "raw": "{{baseUrl}}/provider/bookings",
               "host": ["{{baseUrl}}"],
-              "path": ["provider", "bookings"]
+              "path": ["provider", "bookings"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "limit", "value": "10", "disabled": true }
+              ]
             },
-            "description": "Requires `Authorization: Bearer <provider JWT>`. Lists bookings made against this provider's slots, with customer/service/slot populated."
+            "description": "Requires `Authorization: Bearer <provider JWT>`. Lists bookings made against this provider's slots, with customer/service/slot populated. Supports optional `?page=` and `?limit=` (default 1/10, `limit` capped at 50). Response includes a `pagination` object: `{ page, limit, total, totalPages }`."
           },
           "response": []
         }
@@ -586,6 +594,75 @@
       ]
     },
     {
+      "name": "Booking Status Updates",
+      "item": [
+        {
+          "name": "Cancel Booking (Customer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Booking cancelled (200)\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Status is 'cancelled'\", function () {",
+                  "        pm.expect(pm.response.json().booking.status).to.eql(\"cancelled\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{customerToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer/bookings/{{bookingId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["customer", "bookings", "{{bookingId}}", "cancel"]
+            },
+            "description": "Requires `Authorization: Bearer <customer JWT>`. Run 'Create Booking' first so `{{bookingId}}` is populated. Only works on a booking that's still `confirmed` (400 otherwise) and that belongs to this customer (404 otherwise). On success, also re-opens the linked Availability slot (`isBooked: false`) so it can be booked again."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Booking (Provider) - Expect 400 (Already Cancelled)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Rejected because the booking is no longer 'confirmed' (400)\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{providerToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/provider/bookings/{{bookingId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["provider", "bookings", "{{bookingId}}", "complete"]
+            },
+            "description": "Requires `Authorization: Bearer <provider JWT>`. Run this right after 'Cancel Booking (Customer)' against the same `{{bookingId}}` to see the guard in action: the booking is no longer `confirmed` (it's `cancelled`), so this returns 400 'Only confirmed bookings can be marked complete' instead of completing it.\n\nTo see the success path (200) instead, run 'Create Booking' again first to get a fresh `bookingId` still in the `confirmed` state, then call this request before cancelling it."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Customer (Customer Only)",
       "item": [
         {
@@ -611,9 +688,13 @@
             "url": {
               "raw": "{{baseUrl}}/customer/bookings",
               "host": ["{{baseUrl}}"],
-              "path": ["customer", "bookings"]
+              "path": ["customer", "bookings"],
+              "query": [
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "limit", "value": "10", "disabled": true }
+              ]
             },
-            "description": "Requires `Authorization: Bearer <customer JWT>`. Lists bookings made by this customer, with provider/service/slot populated."
+            "description": "Requires `Authorization: Bearer <customer JWT>`. Lists bookings made by this customer, with provider/service/slot populated. Supports optional `?page=` and `?limit=` (default 1/10, `limit` capped at 50). Response includes a `pagination` object: `{ page, limit, total, totalPages }`."
           },
           "response": []
         }
