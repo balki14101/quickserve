@@ -9,7 +9,11 @@ import customerRoutes from "./routes/customer.routes";
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://web-provider-rmws.onrender.com",
+];
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
@@ -22,10 +26,11 @@ app.use("/provider", providerRoutes);
 app.use("/bookings", bookingRoutes);
 app.use("/customer", customerRoutes);
 
-// Catch-all for unmatched routes. Every route above handles its own errors
-// locally, so there's no global error-handling middleware here.
+// Catch-all for unmatched routes; each route handles its own errors locally.
 app.use((req, res) => {
-  res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
+  res
+    .status(404)
+    .json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
 });
 
 export default app;
