@@ -7,10 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "quickserve",
     "userInterfaceStyle": "light",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
     "android": {
+      "package": "com.balki.quickserve",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#FFB800",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

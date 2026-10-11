@@ -69,3 +69,6 @@ export const getMyBookings = (token: string): Promise<{ bookings: Booking[] }> =
 
 export const cancelBooking = (token: string, bookingId: string) =>
   request(`/customer/bookings/${bookingId}/cancel`, { method: "PATCH" }, token);
+
+export const deleteAccount = (token: string, password: string) =>
+  request("/customer/account", { method: "DELETE", body: JSON.stringify({ password }) }, token);

@@ -8,19 +8,23 @@ export function Logo({ size = 32 }: { size?: number }) {
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: "solid" | "outline";
+  variant?: "solid" | "outline" | "danger";
   loading?: boolean;
 }
 
 export function Button({ title, onPress, variant = "solid", loading }: ButtonProps) {
-  const solid = variant === "solid";
+  const danger = variant === "danger";
   return (
     <Pressable
       onPress={onPress}
       disabled={loading}
-      style={[styles.button, solid ? styles.buttonSolid : styles.buttonOutline, loading && { opacity: 0.6 }]}
+      style={[styles.button, buttonStyles[variant], loading && { opacity: 0.6 }]}
     >
-      {loading ? <ActivityIndicator color={colors.ink} /> : <Text style={styles.buttonText}>{title}</Text>}
+      {loading ? (
+        <ActivityIndicator color={danger ? "#FFFFFF" : colors.ink} />
+      ) : (
+        <Text style={[styles.buttonText, danger && { color: "#FFFFFF" }]}>{title}</Text>
+      )}
     </Pressable>
   );
 }
@@ -68,10 +72,14 @@ export function confirm(message: string): Promise<boolean> {
   );
 }
 
+const buttonStyles = StyleSheet.create({
+  solid: { backgroundColor: colors.primary },
+  outline: { borderWidth: 1.5, borderColor: colors.primary },
+  danger: { backgroundColor: colors.dangerInk },
+});
+
 const styles = StyleSheet.create({
   button: { height: 52, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  buttonSolid: { backgroundColor: colors.primary },
-  buttonOutline: { borderWidth: 1.5, borderColor: colors.primary },
   buttonText: { fontFamily: fonts.headingMedium, fontSize: 16, color: colors.ink },
   label: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.ink, marginBottom: 6 },
   input: {
