@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../store";
 import { getMyBookings, completeBooking, type Booking } from "../api";
@@ -12,25 +12,36 @@ export function Bookings() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [completingId, setCompletingId] = useState("");
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await getMyBookings(token, page);
+      setBookings(res.bookings);
+      setTotalPages(res.pagination.totalPages);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load bookings");
+    } finally {
+      setLoading(false);
+    }
+  }, [token, page]);
 
   useEffect(() => {
-    setLoading(true);
-    getMyBookings(token, page)
-      .then((res) => {
-        setBookings(res.bookings);
-        setTotalPages(res.pagination.totalPages);
-      })
-      .finally(() => setLoading(false));
-  }, [token, page]);
+    load();
+  }, [load]);
 
   async function handleComplete(bookingId: string) {
     setCompletingId(bookingId);
+    setError("");
     try {
-      // The complete endpoint returns the raw (unpopulated) booking document,
-      // so update just the status locally instead of replacing the whole
-      // object — otherwise customer/service/slot details would disappear.
+      // The endpoint returns an unpopulated booking, so only the status is updated locally.
       await completeBooking(token, bookingId);
       setBookings((prev) => prev.map((b) => (b._id === bookingId ? { ...b, status: "completed" } : b)));
+    } catch (err) {
+      await load();
+      setError(err instanceof Error ? err.message : "Could not complete booking");
     } finally {
       setCompletingId("");
     }
@@ -41,8 +52,9 @@ export function Bookings() {
       <h1 className="mb-1 text-xl font-semibold tracking-tight text-slate-900">Bookings</h1>
       <p className="mb-6 text-sm text-slate-500">Appointments customers have made with you.</p>
 
+      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
       {loading && <p className="text-sm text-slate-500">Loading...</p>}
-      {!loading && bookings.length === 0 && <p className="text-sm text-slate-500">No bookings yet.</p>}
+      {!loading && !error && bookings.length === 0 && <p className="text-sm text-slate-500">No bookings yet.</p>}
 
       {!loading && bookings.length > 0 && (
         <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white shadow-sm">

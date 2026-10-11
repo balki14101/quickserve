@@ -74,7 +74,7 @@ export function Services() {
               <p className="text-sm text-slate-900">{s.name}</p>
               <p className="text-xs text-slate-500">{s.durationMinutes} min</p>
             </div>
-            <p className="text-sm font-medium text-slate-900">${s.price}</p>
+            <p className="text-sm font-medium text-slate-900">₹{s.price}</p>
           </div>
         ))}
       </div>
@@ -97,7 +97,7 @@ export function Services() {
             />
           </div>
           <div className="flex-1">
-            <label className="mb-1 block text-sm text-slate-700">Price ($)</label>
+            <label className="mb-1 block text-sm text-slate-700">Price (₹)</label>
             <Input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} required />
           </div>
         </div>
