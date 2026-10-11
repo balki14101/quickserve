@@ -1,4 +1,6 @@
 import { Router, Request, Response } from "express";
+import bcrypt from "bcrypt";
+import { User } from "../models/User";
 import { Booking } from "../models/Booking";
 import { Availability } from "../models/Availability";
 import { authenticate, requireRole } from "../middleware/auth";
@@ -63,5 +65,34 @@ router.patch(
     }
   }
 );
+
+router.delete("/account", authenticate, requireRole("customer"), async (req: Request, res: Response) => {
+  try {
+    const { password } = req.body as { password?: string };
+    if (!password) {
+      res.status(400).json({ error: "password is required" });
+      return;
+    }
+
+    const user = await User.findById(req.user!.id);
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      res.status(401).json({ error: "Incorrect password" });
+      return;
+    }
+
+    const bookings = await Booking.find({ customerId: user._id });
+    const heldSlotIds = bookings.filter((b) => b.status === "confirmed").map((b) => b.slotId);
+
+    // Slots held by upcoming bookings go back on sale before the bookings are removed.
+    await Availability.updateMany({ _id: { $in: heldSlotIds } }, { $set: { isBooked: false } });
+    await Booking.deleteMany({ customerId: user._id });
+    await user.deleteOne();
+
+    res.status(200).json({ message: "Account deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 export default router;
